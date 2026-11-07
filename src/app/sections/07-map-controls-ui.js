@@ -261,6 +261,32 @@ function adjustCoverageOpacity(layer, opacity) {
     GM_setValue('coverageOpacity', opacity);
 }
 
+function resolvePathRound() {
+    const answerMarkers = [...domCache.queryAll(SELECTORS.answerMarker)];
+    const visibleMarkers = answerMarkers.filter((el) => {
+        const style = getComputedStyle(el);
+        return style.display !== 'none' && style.visibility !== 'hidden';
+    });
+    if (visibleMarkers.length !== 1) return null;
+
+    if (domCache.queryOne(SELECTORS.roundEnd) && state.currentMovementRound) {
+        return state.currentMovementRound;
+    }
+
+    const labeled = markerRoundLabel(visibleMarkers[0]) || Number(visibleMarkers[0].dataset.roundId);
+    if (labeled >= 1 && labeled <= 20) return labeled;
+
+    if (domCache.queryOne(SELECTORS.challengeEnd)) {
+        const roundColumns = domCache.queryAll("[class*='coordinate-results_clickableColumn']");
+        const selectedColumn = domCache.queryOne("[class*='coordinate-results_selectedColumn']");
+        const index = Array.prototype.indexOf.call(roundColumns, selectedColumn);
+        if (index >= 0) return index + 1;
+    }
+
+    if (answerMarkers.length === 1) return state.currentMovementRound || getCurrentRound();
+    return answerMarkers.indexOf(visibleMarkers[0]) + 1;
+}
+
 function focusPath() {
     const pathControl = document.getElementById('path-focus');
 
@@ -273,48 +299,23 @@ function focusPath() {
         return;
     }
 
-    const answerMarkers = domCache.queryAll(SELECTORS.answerMarker);
-    const visibleMarkers = Array.from(answerMarkers).filter(el => {
-        return getComputedStyle(el).display !== 'none';
-
-    });
-    if (visibleMarkers.length != 1) {
-        renderMovementPaths();
-        return;
-    }
-    let index;
-    const isChallenge = domCache.queryOne(SELECTORS.challengeEnd);
-
-    if(isChallenge) {
-        const roundColoums = domCache.queryAll("[class*='coordinate-results_clickableColumn']")
-        const selectedColoum = domCache.queryOne("[class*='coordinate-results_selectedColumn']")
-        index = Array.prototype.indexOf.call(roundColoums, selectedColoum) + 1;
-    }
-
-    else index = Array.prototype.indexOf.call(answerMarkers, visibleMarkers[0]) + 1;
-
-    const round =answerMarkers.length == visibleMarkers.length && !isChallenge ? getCurrentRound() : index;
-    const storageKey = `${MOVEMENT_STORAGE_PREFIX}${round}`;
-    let path = null;
-    try {
-        const raw = sessionStorage.getItem(storageKey);
-        if (!raw) {
-            renderMovementPaths();
-            return;
-        }
-
-        path = JSON.parse(raw);
-        if (!Array.isArray(path) || path.length < 2) {
-            renderMovementPaths();
-            return;
-        }
-    } catch (err) {
-        console.error('[PathPlayback] read failed', err);
+    attachVisibleMap();
+    const round = resolvePathRound();
+    if (!round) {
         renderMovementPaths();
         return;
     }
 
-    // Use fitBounds to show entire path
+    if (state.currentMovementRound === round) persistMovementPath(round);
+    const path = readStoredPath(round)
+        || (state.currentMovementRound === round && state.currentMovementPath.length >= 2
+            ? state.currentMovementPath
+            : null);
+    if (!path || !state.guessMap) {
+        renderMovementPaths(round);
+        return;
+    }
+
     const bounds = new google.maps.LatLngBounds();
     path.forEach(point => {
         bounds.extend(new google.maps.LatLng(point.lat, point.lng));
@@ -346,7 +347,7 @@ function stopPathPlayback() {
 }
 
 function playPathAnimation(path) {
-    if (!path || path.length < 2) return;
+    if (!path || path.length < 2 || !state.guessMap || !polylineApi.original) return;
 
     state.isPlayingPath = true;
     clearMovementPaths();
@@ -360,8 +361,7 @@ function playPathAnimation(path) {
         map: state.guessMap,
         zIndex: 99999
     });
-
-    mapPathOverlayMap.set(state.guessMap, { polyline, isAnimating: true });
+    state.renderedMovementPaths.push(polyline);
 
     // Clean up existing marker before creating new one
     if (state.playbackMarker) {
@@ -484,7 +484,6 @@ function playPathAnimation(path) {
     function animate() {
         if (!state.isPlayingPath) {
             polyline.setMap(null);
-            mapPathOverlayMap.delete(state.guessMap);
             return;
         }
 

@@ -58,21 +58,26 @@ function offsetMapFocus(map, coords) {
 }
 
 function attachPanoChangeListener() {
-    if (!state.gameViewer) return;
-    if (panoListenerMap.has(state.gameViewer)) return;
+    if (!state.gameViewer || panoListenerMap.has(state.gameViewer)) return;
 
-    const round = getCurrentRound() || 1;
-
-    const startPosition = state.gameViewer.getPosition();
-
-    const startPoint = {
-        lat: startPosition.lat(),
-        lng: startPosition.lng(),
-        time: Date.now()
-    };
-    state.currentMovementPath = [startPoint];
-    state.currentMovementRound = round;
-
+    const round = getCurrentRound() || state.currentMovementRound || 1;
+    let startPosition = null;
+    try {
+        startPosition = state.gameViewer.getPosition();
+    } catch {
+        startPosition = null;
+    }
+    if (startPosition) {
+        if (state.currentMovementRound && state.currentMovementRound !== round) {
+            persistMovementPath(state.currentMovementRound);
+        }
+        state.currentMovementPath = [{
+            lat: startPosition.lat(),
+            lng: startPosition.lng(),
+            time: Date.now()
+        }];
+        state.currentMovementRound = round;
+    }
 
     const listener = state.gameViewer.addListener("position_changed", function () {
         recordMovementPoint(state.gameViewer);

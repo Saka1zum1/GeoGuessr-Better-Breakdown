@@ -254,13 +254,34 @@ export function getRadius(coords1, coords2) {
     );
 }
 
+function parseRoundNumber(text) {
+    if (!text) return null;
+    const cleaned = text.replace(/\s+/g, " ").trim();
+    if (!cleaned || /^total/i.test(cleaned)) return null;
+    const slash = cleaned.match(/(\d+)\s*\/\s*\d+/);
+    if (slash) return Number(slash[1]);
+    const labeled = cleaned.match(/round\s*(\d+)/i);
+    if (labeled) return Number(labeled[1]);
+    if (/^\d{1,2}$/.test(cleaned)) return Number(cleaned);
+    return null;
+}
+
+/** The round being played, not the first row of the scoreboard. */
 export function getCurrentRound() {
-    const nodes = [...domCache.queryAll(SELECTORS.roundNumber)];
-    for (const el of nodes) {
-        const text = el.textContent.trim();
-        if (/^total/i.test(text)) continue;
-        const match = text.match(/\d+/);
-        if (match) return Number(match[0]);
+    const priority = [
+        '[data-qa="current-round-number"]',
+        '[data-qa="round-number"]',
+        '[class*="rounds-status_roundLabelActive"]',
+        '[class*="duel-breakdown_selectedRound"]',
+    ];
+    for (const selector of priority) {
+        const el = document.querySelector(selector);
+        if (!el) continue;
+        const direct = parseRoundNumber(el.textContent);
+        if (direct) return direct;
+        const nested = el.querySelector('[class*="roundNumber"], [class*="roundText"]');
+        const fromNested = parseRoundNumber(nested?.textContent || "");
+        if (fromNested) return fromNested;
     }
     return null;
 }

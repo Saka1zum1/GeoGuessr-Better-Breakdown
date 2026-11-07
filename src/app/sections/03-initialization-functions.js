@@ -1,4 +1,6 @@
 // INITIALIZATION FUNCTIONS
+const boundGuessMaps = new WeakSet();
+
 function attachVisibleMap() {
     const duelMap = domCache.queryOne(SELECTORS.duelMap);
     const legacyTeam = domCache.queryOne(SELECTORS.teamDuelEnd);
@@ -7,12 +9,14 @@ function attachVisibleMap() {
     const map = getGuessMap(mapEl);
     if (!map) return;
     state.guessMap = map;
+    if (!boundGuessMaps.has(map)) {
+        boundGuessMaps.add(map);
+        attachClickListener(map);
+    }
     if (!state.clickListenerAttached) {
         startViewerObserver();
-        attachClickListener(state.guessMap);
         state.clickListenerAttached = true;
         if (duelMap && legacyTeam) makeMapResizable();
-        stopMapObserver();
     }
 }
 
@@ -77,6 +81,15 @@ function startViewerObserver() {
         subtree: true,
         attributes: false,
     });
+    ensureMovementTracking();
+}
+
+function ensureMovementTracking() {
+    if (location.pathname.includes("duel")) return;
+    const viewer = getGameViewer(queryStreetViewHost());
+    if (!viewer) return;
+    if (state.gameViewer !== viewer) state.gameViewer = viewer;
+    attachPanoChangeListener();
 }
 
 // ============================================================================

@@ -73,20 +73,14 @@ async function gameLoop() {
         }
         setPreserveDrawingBuffer(true);
         state.isInGame = true
+        ensureMovementTracking();
         return
     }
 
     if (screen.isResult) {
         state.isInGame = false
         if (reactionBtn) reactionBtn.remove()
-        if (isRoundEnd && state.currentMovementRound && state.currentMovementPath.length > 2) {
-            const storageKey = `${MOVEMENT_STORAGE_PREFIX}${state.currentMovementRound}`;
-            try {
-                sessionStorage.setItem(storageKey, JSON.stringify(state.currentMovementPath));
-            } catch (err) {
-                console.error('[MovementPath] save failed', err);
-            }
-        }
+        if (isRoundEnd) persistMovementPath();
 
         if (!isRoundEnd) {
             attachRoundElementInteractions();
@@ -97,8 +91,9 @@ async function gameLoop() {
             if (xpDiv) xpDiv.style.display = "none";
         }
 
+        attachVisibleMap();
         if (!state.isPlayingPath) {
-            renderMovementPaths()
+            renderMovementPaths(isRoundEnd ? state.currentMovementRound : undefined);
         }
 
         if (isTeamDuelEnd || isNewDuelEnd) {

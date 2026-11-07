@@ -27,6 +27,7 @@ export const state = {
     mapTypeIndex: 0,
     movementPath: [],
     currentMovementPath: [],
+    renderedMovementPaths: [],
     isInGame: false,
     isPhotoMode: false,
     isPlayingPath: false,

@@ -1,22 +1,38 @@
 // MOVEMENT PATH TRACKING & RENDERING
+function persistMovementPath(round = state.currentMovementRound) {
+    if (!round || state.currentMovementPath.length < 2) return;
+    try {
+        sessionStorage.setItem(
+            `${MOVEMENT_STORAGE_PREFIX}${round}`,
+            JSON.stringify(state.currentMovementPath)
+        );
+    } catch (err) {
+        console.error('[MovementPath] save failed', err);
+    }
+}
+
+function readStoredPath(round) {
+    if (!round) return null;
+    try {
+        const raw = sessionStorage.getItem(`${MOVEMENT_STORAGE_PREFIX}${round}`);
+        if (!raw) return null;
+        const path = JSON.parse(raw);
+        return Array.isArray(path) && path.length >= 2 ? path : null;
+    } catch (err) {
+        console.error('[MovementPath] read failed', err);
+        return null;
+    }
+}
+
 function renderMovementPaths(round) {
-    clearMovementPaths()
+    clearMovementPaths();
+    attachVisibleMap();
+    if (!state.guessMap || !polylineApi.original) return;
     const roundsToRender = round ? [round] : [1, 2, 3, 4, 5];
-    const polylines = [];
 
     for (const roundNum of roundsToRender) {
-        const storageKey = `${MOVEMENT_STORAGE_PREFIX}${roundNum}`;
-        let path = null;
-
-        try {
-            const raw = sessionStorage.getItem(storageKey);
-            if (!raw) continue;
-            path = JSON.parse(raw);
-            if (!Array.isArray(path) || path.length < 2) continue;
-        } catch (err) {
-            console.error('[MovementPath] read failed', err);
-            continue;
-        }
+        const path = readStoredPath(roundNum);
+        if (!path) continue;
         const polyline = new polylineApi.original({
             path,
             geodesic: true,
@@ -26,28 +42,15 @@ function renderMovementPaths(round) {
             map: state.guessMap,
             zIndex: 99999,
         });
-
-        polylines.push({ polyline, round: roundNum });
-    }
-
-    if (polylines.length > 0) {
-        if (round) {
-            mapPathOverlayMap.set(state.guessMap, polylines[0]);
-        } else {
-            mapPathOverlayMap.set(state.guessMap, polylines);
-        }
+        state.renderedMovementPaths.push(polyline);
     }
 }
 
 function clearMovementPaths() {
-    const overlay = mapPathOverlayMap.get(state.guessMap);
-    if (overlay) {
-        if (Array.isArray(overlay)) {
-            overlay.forEach(item => {overlay.forEach(item => item.polyline?.setMap(null));});
-        } else if (overlay.polyline) overlay.polyline.setMap(null);
+    for (const polyline of state.renderedMovementPaths) {
+        polyline?.setMap?.(null);
     }
-
-    mapPathOverlayMap.delete(state.guessMap);
+    state.renderedMovementPaths = [];
 }
 
 function recordMovementPoint(panorama) {
@@ -56,7 +59,7 @@ function recordMovementPoint(panorama) {
     const position = panorama.getPosition();
     if (!position) return;
 
-    const round = getCurrentRound() || 1;
+    const round = getCurrentRound() || state.currentMovementRound || 1;
 
     const newPoint = {
         lat: position.lat(),
@@ -64,13 +67,14 @@ function recordMovementPoint(panorama) {
         time: Date.now()
     };
 
-    if(!state.currentMovementRound)state.currentMovementRound=round
-
-    if (state.currentMovementRound !== round) {
+    if (state.currentMovementRound && state.currentMovementRound !== round) {
+        persistMovementPath(state.currentMovementRound);
         state.currentMovementPath = [newPoint];
         state.currentMovementRound = round;
         return;
     }
+
+    if (!state.currentMovementRound) state.currentMovementRound = round;
 
     const lastPoint = state.currentMovementPath[state.currentMovementPath.length - 1];
     if (!lastPoint || lastPoint.lat !== newPoint.lat || lastPoint.lng !== newPoint.lng) {
