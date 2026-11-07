@@ -1,0 +1,16 @@
+{
+  "name": "geoguessr-better-breakdown",
+  "version": "1.7.1",
+  "private": true,
+  "description": "GeoGuessr Better Breakdown userscript",
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "sync:legacy": "node scripts/sync-body.mjs"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0",
+    "vite-plugin-monkey": "^4.0.0"
+  }
+}

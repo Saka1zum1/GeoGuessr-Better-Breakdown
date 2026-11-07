@@ -27,8 +27,33 @@
 
 1. Click the Tampermonkey icon in your browser
 2. Select "Create a new script"
-3. Copy the contents of `GeoGuessr Better Breakdown UI.js` and paste it into the editor
+3. Copy the contents of `dist/GeoGuessr Better Breakdown.user.js` (after running `npm run build`) and paste it into the editor
 4. Press `Ctrl+S` (or `Cmd+S` on Mac) to save
+
+## 🛠️ Development
+
+This repo uses a modular source tree and [vite-plugin-monkey](https://github.com/lisonge/vite-plugin-monkey) to produce the installable userscript.
+
+| Location | Purpose |
+|----------|---------|
+| `package.json` | **Version** of the script (`@version` in the built file follows this field) |
+| `src/constants/` | Selectors, SVG icons, map tile templates, shared config |
+| `src/styles/` | Global CSS injected via `GM_addStyle` |
+| `src/bootstrap/` | Google Maps polyline hook (runs in page context) |
+| `src/state/store.js` | Mutable runtime state shared by inlined sections |
+| `src/lib/` | DOM helpers, dialogs, lazy Chart loader, heatmap |
+| `src/app/sections/` | Feature logic split by section (merged into one scope at build time) |
+| `legacy/` | Archived single-file script; not used by the build |
+| `dist/` | Build output for Tampermonkey / Greasy Fork |
+| `greasyfork/` | User-facing install page text per locale (paste into Greasy Fork) |
+
+```bash
+npm install
+npm run build          # writes dist/GeoGuessr Better Breakdown.user.js
+npm run dev            # rebuild on file changes
+```
+
+Day-to-day edits belong under `src/`. The file in `legacy/` is an archive of the old monolith and is not part of the build. `npm run sync:legacy` refuses to run unless you pass `--force`, because that command overwrites `src/`.
 
 ## 🔧 Map Making Integration Setup
 
