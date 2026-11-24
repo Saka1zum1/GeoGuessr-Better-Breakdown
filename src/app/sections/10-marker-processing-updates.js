@@ -28,7 +28,7 @@ async function updateMarkers() {
     let guessMarkers = [...domCache.queryAll(SELECTORS.guessMarker)];
     const answerMarkers = [...domCache.queryAll(SELECTORS.answerMarker)];
     const gameData = extractGameData() || {};
-    const selectedEl = document.querySelector("[class*='game-summary_selectedRound'], [class*='duel-breakdown_selectedRound']");
+    const selectedEl = document.querySelector("[class*='game-summary_selectedRound'], [class*='duel-breakdown_selectedRound'], [class*='_selectedRound_']");
     let selectedRound;
     if (selectedEl) {
         const match = selectedEl.textContent.match(/\d+/);

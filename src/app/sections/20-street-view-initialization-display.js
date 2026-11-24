@@ -300,7 +300,7 @@ function addPanoControls(isNew) {
 
     const openInMapsControl = document.createElement('button')
     openInMapsControl.className = 'pano-control'
-    openInMapsControl.id = 'peek-spawn'
+    openInMapsControl.id = 'peek-teleport'
     openInMapsControl.title = 'Open in Google Maps'
     openInMapsControl.innerHTML = SVG_SOURCE.TRANSFER
     openInMapsControl.addEventListener('click', () => {

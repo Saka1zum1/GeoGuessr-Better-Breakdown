@@ -15,6 +15,7 @@ import {
     extractReplayData,
     extractGuesses,
     getDuelData,
+    getSelectedDuelRound,
     formatDistance,
     convertPanoId,
     getStreetViewThumbUrl,

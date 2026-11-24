@@ -8,7 +8,7 @@ function fiberOf(el) {
 }
 
 /** Walk up the React fiber until `read` returns a value. CSS-module hashes can change; props shapes move more slowly. */
-export function findInFiber(el, read, maxHops = 30) {
+export function findInFiber(el, read, maxHops = 40) {
     let fiber = fiberOf(el);
     const seen = new Set();
     let hops = 0;
@@ -35,7 +35,7 @@ function findGoogleObject(el, test) {
             if (test(props.value?.map)) return props.value.map;
         }
         let hook = fiber.memoizedState;
-        for (let index = 0; hook && index < 40; index += 1) {
+        for (let index = 0; hook && index < 100; index += 1) {
             const value = hook.memoizedState;
             if (test(value)) return value;
             if (value && typeof value === "object") {
@@ -60,22 +60,38 @@ function asStreetView(value) {
     return value && typeof value.getPano === "function" ? value : null;
 }
 
+function resolveAppRoot() {
+    return (
+        document.querySelector("#__next")
+        || document.querySelector("[class*='_layout_']")
+        || document.querySelector("main")
+        || document.body
+        || null
+    );
+}
+
 export const domCache = {
     _nextRoot: null,
     _lastNextRootCheck: 0,
     get nextRoot() {
         const now = Date.now();
-        if (!this._nextRoot || now - this._lastNextRootCheck > 1000) {
-            this._nextRoot = document.querySelector("#__next");
+        // Re-resolve often: GeoGuessr dropped #__next and remounts the layout root.
+        if (!this._nextRoot?.isConnected || now - this._lastNextRootCheck > 500) {
+            this._nextRoot = resolveAppRoot();
             this._lastNextRootCheck = now;
         }
         return this._nextRoot;
     },
     queryOne(selector) {
-        return this.nextRoot?.querySelector(selector) || null;
+        const root = this.nextRoot;
+        if (!root?.querySelector) return document.querySelector(selector);
+        return root.querySelector(selector) || document.querySelector(selector);
     },
     queryAll(selector) {
-        return this.nextRoot?.querySelectorAll(selector) || [];
+        const root = this.nextRoot;
+        if (!root?.querySelectorAll) return document.querySelectorAll(selector);
+        const scoped = root.querySelectorAll(selector);
+        return scoped.length ? scoped : document.querySelectorAll(selector);
     },
     clear() {
         this._nextRoot = null;
@@ -166,10 +182,32 @@ export function extractGuesses() {
 }
 
 export function getDuelData(marker) {
-    return findInFiber(marker, (_fiber, props) => {
+    let fallback = null;
+    const round = findInFiber(marker, (_fiber, props) => {
         if (!props) return null;
         if (props.round && (props.round.lat != null || props.round.panorama)) return props.round;
-        if (props.lat != null && props.lng != null && !props.rounds) return props;
+        if (
+            !fallback
+            && props.lat != null
+            && props.lng != null
+            && !props.rounds
+            && !props.guesses
+        ) {
+            fallback = props;
+        }
+        return null;
+    });
+    return round || fallback;
+}
+
+/** Selected duel round payload from the summary round view (works even when pin DOM is empty). */
+export function getSelectedDuelRound() {
+    const host = document.querySelector(
+        '[class*="_roundView_"], [class*="duel-breakdown_roundView"], [class*="_mapSection_"]',
+    );
+    return findInFiber(host, (_fiber, props) => {
+        if (!props?.round) return null;
+        if (props.round.lat != null || props.round.panorama || props.round.panoId) return props.round;
         return null;
     });
 }
@@ -273,6 +311,8 @@ export function getCurrentRound() {
         '[data-qa="round-number"]',
         '[class*="rounds-status_roundLabelActive"]',
         '[class*="duel-breakdown_selectedRound"]',
+        '[class*="_selectedRound_"]',
+        '[class*="selectedRound"]',
     ];
     for (const selector of priority) {
         const el = document.querySelector(selector);

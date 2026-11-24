@@ -1,6 +1,6 @@
 {
   "name": "geoguessr-better-breakdown",
-  "version": "1.8.3",
+  "version": "1.8.4",
   "private": true,
   "description": "GeoGuessr Better Breakdown userscript",
   "type": "module",

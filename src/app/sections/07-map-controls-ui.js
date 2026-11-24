@@ -55,8 +55,8 @@ function setMapControls(container) {
     if ((coverageLayerControl && pathControl && mapTypeControl) || duelEndMiniMap) return
 
     let panelControl = document.getElementById('peek-duel-panel-toggle');
-    let isNewDuelEnd = domCache.queryOne('[class*="duel-breakdown_roundsList"], [class*="duel-breakdown_roundView"]');
-    const roundView = domCache.queryOne('[class*="duel-breakdown_roundView"]');
+    let isNewDuelEnd = domCache.queryOne('[class*="duel-breakdown_roundsList"], [class*="duel-breakdown_roundView"], [class*="_roundsList_"], [class*="_roundView_"], [class*="_mapSection_"]');
+    const roundView = domCache.queryOne('[class*="duel-breakdown_roundView"], [class*="_roundView_"], [class*="_mapSection_"]');
     if (isNewDuelEnd && roundView) container = roundView;
 
     if (!panelControl && isNewDuelEnd) {
@@ -65,16 +65,17 @@ function setMapControls(container) {
         panelControl.innerHTML = SVG_SOURCE.PANEL;
         panelControl.title = 'Toggle rounds panel';
         container.appendChild(panelControl);
-        const roundsPanel = document.querySelector('[class^="duel-breakdown_sidebar"]');
+        const roundsPanel = document.querySelector('[class^="duel-breakdown_sidebar"], [class*="_sidebar_"]');
         const roundsPanelParentEl = roundsPanel?.parentNode;
-        panelControl.onclick = () => {
-            if (roundsPanelParentEl.contains(roundsPanel)) {
-                roundsPanel.remove();
-            } else {
-                roundsPanelParentEl.insertBefore(roundsPanel, roundsPanelParentEl.firstChild);
-            }
-        };
-
+        if (roundsPanel && roundsPanelParentEl) {
+            panelControl.onclick = () => {
+                if (roundsPanelParentEl.contains(roundsPanel)) {
+                    roundsPanel.remove();
+                } else {
+                    roundsPanelParentEl.insertBefore(roundsPanel, roundsPanelParentEl.firstChild);
+                }
+            };
+        }
     }
 
     if (!coverageLayerControl) {
@@ -532,12 +533,12 @@ function playPathAnimation(path) {
 
 function addCreditToPage(container, duelMap) {
     if ((!window.location.href.includes('summary') && duelMap)) return
-    const mapCanvas = domCache.queryOne('[class*="coordinate-result-map_map"], [class*="results-summary_mapCanvas"]');
+    const mapCanvas = domCache.queryOne('[data-qa="results-map"], [class*="_resultMap_"], [class*="coordinate-result-map_map"], [class*="results-summary_mapCanvas"], [class*="_mapCanvas_"], [class*="_mapContainer_"], [class*="_map_ihtfe"]');
     container = mapCanvas || domCache.queryOne(SELECTORS.controlHost) || container;
 
     if (!container || document.getElementById('peek-credit-container')) return;
     const isNewDuelEnd = domCache.queryOne(SELECTORS.newDuelEnd);
-    if (isNewDuelEnd) container = domCache.queryOne('[class*="duel-breakdown_roundView"]') || container;
+    if (isNewDuelEnd) container = domCache.queryOne('[class*="duel-breakdown_roundView"], [class*="_roundView_"], [class*="_mapSection_"]') || container;
     if (getComputedStyle(container).position === "static") container.style.position = "relative";
 
     const element = document.createElement('div');

@@ -1,6 +1,31 @@
 // INITIALIZATION FUNCTIONS
 const boundGuessMaps = new WeakSet();
 
+function observeRoot(observer, options) {
+    const root = domCache.nextRoot;
+    if (!root || typeof root.nodeType !== "number") return false;
+    try {
+        observer.observe(root, options);
+        return true;
+    } catch (err) {
+        console.warn("[GGBB] observer attach failed", err);
+        return false;
+    }
+}
+
+function whenRootReady(start) {
+    if (observeRoot(state[start.observerKey], start.options)) {
+        start.onReady?.();
+        return;
+    }
+    const boot = new MutationObserver(() => {
+        if (!observeRoot(state[start.observerKey], start.options)) return;
+        boot.disconnect();
+        start.onReady?.();
+    });
+    boot.observe(document.documentElement, { childList: true, subtree: true });
+}
+
 function attachVisibleMap() {
     const duelMap = domCache.queryOne(SELECTORS.duelMap);
     const legacyTeam = domCache.queryOne(SELECTORS.teamDuelEnd);
@@ -28,12 +53,11 @@ function startMapObserver() {
         attachVisibleMap();
     });
 
-    state.mapObserver.observe(domCache.nextRoot, {
-        childList: true,
-        subtree: true,
-        attributes: false,
+    whenRootReady({
+        observerKey: "mapObserver",
+        options: { childList: true, subtree: true, attributes: false },
+        onReady: () => attachVisibleMap(),
     });
-    attachVisibleMap();
 }
 
 function startMarkerObserver() {
@@ -55,11 +79,11 @@ function startMarkerObserver() {
         }
     });
 
-    state.markerObserver.observe(domCache.nextRoot, {
-        childList: true,
-        subtree: true,
+    whenRootReady({
+        observerKey: "markerObserver",
+        options: { childList: true, subtree: true },
+        onReady: () => throttledScheduleGameLoop(),
     });
-    throttledScheduleGameLoop();
 }
 
 function startViewerObserver() {
@@ -76,12 +100,11 @@ function startViewerObserver() {
         }
     });
 
-    state.viewerObserver.observe(domCache.nextRoot, {
-        childList: true,
-        subtree: true,
-        attributes: false,
+    whenRootReady({
+        observerKey: "viewerObserver",
+        options: { childList: true, subtree: true, attributes: false },
+        onReady: () => ensureMovementTracking(),
     });
-    ensureMovementTracking();
 }
 
 function ensureMovementTracking() {

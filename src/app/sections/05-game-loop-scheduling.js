@@ -22,7 +22,8 @@ function scheduleGameLoop(delay = 200) {
 const throttledScheduleGameLoop = throttle(() => scheduleGameLoop(150), 100);
 
 async function gameLoop() {
-    if (!domCache.nextRoot) return;
+    // GeoGuessr no longer mounts #__next; fall back through layout/body.
+    if (!domCache.nextRoot && !document.body) return;
 
     const isReplay = domCache.queryOne(SELECTORS.replay);
     const investigationEl = domCache.queryOne(SELECTORS.investigation);
@@ -140,27 +141,63 @@ async function gameLoop() {
             if (isTeamDuelEnd) addDuelRoundsPanel();
 
             const markers = domCache.queryAll(SELECTORS.duelMarker);
-            for (const marker of markers) {
-                const data = getDuelData(marker);
-                if (!data) continue
-                await applyPanoToDuelMarker(marker, data);
+            if (markers.length) {
+                for (const marker of markers) {
+                    const data = getDuelData(marker);
+                    if (!data) continue;
+                    await applyPanoToDuelMarker(marker, data);
+                }
+            } else {
+                // New team-duel layouts sometimes omit pin DOM; still keep the street view in sync.
+                const selected = getSelectedDuelRound();
+                if (selected && state.viewer) {
+                    const pano = selected.panorama
+                        ? {
+                            panoId: selected.panorama.panoId || convertPanoId(selected.panoId),
+                            location: {
+                                lat: selected.panorama.lat ?? selected.lat,
+                                lng: selected.panorama.lng ?? selected.lng,
+                            },
+                            heading: selected.panorama.heading ?? selected.heading,
+                            pitch: selected.panorama.pitch ?? selected.pitch,
+                            zoom: selected.panorama.zoom ?? selected.zoom,
+                        }
+                        : {
+                            panoId: convertPanoId(selected.panoId),
+                            location: { lat: selected.lat, lng: selected.lng },
+                            heading: selected.heading,
+                            pitch: selected.pitch,
+                            zoom: selected.zoom,
+                        };
+                    if (pano.panoId || pano.location) handleNewDuelStreetView(pano);
+                }
             }
         }
         else updateMarkers();
 
-        const innerMap = domCache.queryOne('[class*="coordinate-result-map_map"]');
-        setMapControls(screen.duel ? (duelMap || innerMap) : (innerMap || resultMap || domCache.queryOne(SELECTORS.controlHost)));
+        const innerMap = domCache.queryOne(
+            '[data-qa="results-map"], [class*="_resultMap_"], [class*="coordinate-result-map_map"], [class*="_map_ihtfe"], [class*="_map_"]:not([class*="cornerMap"]):not([class*="guessMap"]):not([class*="mapPin"]):not([class*="mapControl"]):not([class*="mapSection"]):not([class*="mapAnd"]):not([class*="mapImage"]):not([class*="mapDetails"]):not([class*="mapAvatar"]):not([class*="mapTitle"])'
+        );
+        const roundView = domCache.queryOne('[class*="_roundView_"], [class*="duel-breakdown_roundView"], [class*="_mapSection_"]');
+        setMapControls(
+            screen.duel
+                ? (roundView || duelMap || innerMap)
+                : (innerMap || resultMap || domCache.queryOne(SELECTORS.controlHost))
+        );
     }
 }
 
 function readResultScreen() {
     const path = location.pathname;
     const summaryUrl = /\/(?:team-)?duels\/[^/]+\/summary\/?$/.test(path);
-    const daily = path.startsWith("/daily-challenges") || !!domCache.queryOne(SELECTORS.challengeEnd);
+    const challengeUrl = path.startsWith("/daily-challenges")
+        || path.startsWith("/results/")
+        || /^\/challenge\//.test(path);
+    const daily = challengeUrl || !!domCache.queryOne(SELECTORS.challengeEnd);
     const duel = summaryUrl || !!domCache.queryOne(SELECTORS.newDuelEnd);
     const legacyTeam = !!domCache.queryOne(SELECTORS.teamDuelEnd);
     const classic = !!domCache.queryOne(SELECTORS.gameEnd)
-        || !!domCache.queryOne('[data-qa="final-result-score"], [class*="standard-final-result"], [class*="result-layout_root"]');
+        || !!domCache.queryOne('[data-qa="final-result-score"], [class*="standard-final-result"], [class*="result-layout_root"], [class*="_finalResultBottomLayout_"]');
     const roundResult = !!domCache.queryOne(SELECTORS.roundEnd);
     return {
         daily,
