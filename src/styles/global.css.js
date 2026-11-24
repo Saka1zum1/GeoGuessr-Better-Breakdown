@@ -1073,9 +1073,12 @@ export const globalStyles = `
     [class*="result-list_listItemWrapper"]:hover [class*="result-list_roundNumber"],
     [class*="result-list_listItemWrapper"]:hover [class*="result-list_points"],
 
+    /* Keep native duel compass above LEFT_BOTTOM pano-controls (save/copy/spawn/photo). */
+    [class*="_classicCompass_"],
+    [class*="classicCompass"],
     [class^="duel-breakdown_classicCompass"] {
         left: .5rem !important;
-        bottom : 18rem !important;
+        bottom: 15rem !important;
     }
     [class^="duel-breakdown_cluesPanel_"] {
         z-index: 10009 !important;
